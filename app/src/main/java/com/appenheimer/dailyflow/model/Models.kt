@@ -10,6 +10,7 @@ const val PREMIUM_PRODUCT_ID = "dailyflow_premium_lifetime"
 const val FREE_ACTIVE_TASK_LIMIT = 7
 const val FREE_HABIT_LIMIT = 3
 const val FREE_NOTE_LIMIT = 5
+const val DAILY_MOMENTUM_GOAL = 60
 
 enum class DelightType {
     TASK_COMPLETE,
@@ -20,7 +21,10 @@ enum class DelightType {
     FIRST_HABIT,
     FIRST_NOTE,
     CLEAR_COMPLETED,
-    PREMIUM_UNLOCK
+    PREMIUM_UNLOCK,
+    DAILY_GOAL_REACHED,
+    FOCUS_START,
+    LIMIT_REACHED
 }
 
 data class DelightEvent(
@@ -39,6 +43,14 @@ enum class TaskFilter(val label: String) {
     ALL("All"),
     ACTIVE("Active"),
     COMPLETED("Completed")
+}
+
+enum class FocusVibe(val label: String, val description: String) {
+    DEEP_FOCUS("Deep Focus", "Steady and quiet for careful work."),
+    MORNING_FLOW("Morning Flow", "Bright momentum for starting the day."),
+    CHILL_RESET("Chill Reset", "Soft pacing for getting back on track."),
+    ENERGY_BOOST("Energy Boost", "A little lift for low-energy moments."),
+    NIGHT_PLANNING("Night Planning", "Calm reflection for closing the day.")
 }
 
 data class DailyTask(

@@ -25,6 +25,9 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -47,12 +50,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.appenheimer.dailyflow.data.DailyFlowStore
+import com.appenheimer.dailyflow.model.DAILY_MOMENTUM_GOAL
 import com.appenheimer.dailyflow.model.DailyTask
 import com.appenheimer.dailyflow.model.greetingForNow
 import com.appenheimer.dailyflow.model.sortedTasks
 import com.appenheimer.dailyflow.ui.AppSection
 import com.appenheimer.dailyflow.ui.components.AnimatedProgressBar
 import com.appenheimer.dailyflow.ui.components.EmptyState
+import com.appenheimer.dailyflow.ui.components.FocusVisualizer
 import com.appenheimer.dailyflow.ui.components.FlowMascot
 import com.appenheimer.dailyflow.ui.components.FlowPose
 import com.appenheimer.dailyflow.ui.components.ScreenList
@@ -85,6 +90,13 @@ fun HomeScreen(store: DailyFlowStore, navigate: (AppSection) -> Unit) {
         }
     }
     val flowMessage = flowMessages[flowMessageIndex]
+    var nowTick by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(store.focusActive) {
+        while (store.focusActive) {
+            nowTick = System.currentTimeMillis()
+            delay(1_000)
+        }
+    }
 
     if (taskEditor) {
         TaskEditorDialog(
@@ -153,11 +165,36 @@ fun HomeScreen(store: DailyFlowStore, navigate: (AppSection) -> Unit) {
                             StatChip("${store.doneHabitsTodayCount}/${store.habits.size} habits")
                         }
                     }
-                    FlowMascot(FlowPose.HAPPY, modifier = Modifier.size(104.dp))
+                    FlowMascot(
+                        pose = when {
+                            store.focusActive -> FlowPose.MUSIC
+                            store.dailyMomentumPoints >= DAILY_MOMENTUM_GOAL -> FlowPose.CELEBRATE
+                            store.completedTaskCount == 0 && store.doneHabitsTodayCount == 0 -> FlowPose.CALM
+                            else -> FlowPose.HAPPY
+                        },
+                        modifier = Modifier.size(104.dp),
+                        reducedMotion = store.reducedMotion
+                    )
                 }
             }
         }
         item { WarningCard(store.dataWarning) }
+        item {
+            SectionCard(title = "Today's momentum") {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Icon(Icons.Filled.GraphicEq, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("${store.dailyMomentumPoints} / $DAILY_MOMENTUM_GOAL XP", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Flow is ${store.flowMood}. Rank: ${store.momentumRank}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                AnimatedProgressBar(progress = store.dailyMomentumProgress, modifier = Modifier.fillMaxWidth())
+                Text(
+                    if (store.dailyMomentumPoints >= DAILY_MOMENTUM_GOAL) "Daily goal reached. Keep it gentle from here." else "Complete tasks, check habits, and capture useful notes to fill today's momentum.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
         item {
             SectionCard(title = "Today's Flow") {
                 val activeFocus = sortedTasks(store.tasks.filterNot { it.done }).take(4).size
@@ -178,17 +215,17 @@ fun HomeScreen(store: DailyFlowStore, navigate: (AppSection) -> Unit) {
         item {
             SectionCard(title = "Quick actions") {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    Button(onClick = { if (store.canAddTask()) taskEditor = true else store.notice = store.limitMessage("tasks") }, modifier = Modifier.weight(1f)) {
+                    Button(onClick = { if (store.canAddTask()) taskEditor = true else store.showLimit("tasks") }, modifier = Modifier.weight(1f)) {
                         Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                         Text("Task")
                     }
-                    OutlinedButton(onClick = { if (store.canAddHabit()) habitEditor = true else store.notice = store.limitMessage("habits") }, modifier = Modifier.weight(1f)) {
+                    OutlinedButton(onClick = { if (store.canAddHabit()) habitEditor = true else store.showLimit("habits") }, modifier = Modifier.weight(1f)) {
                         Icon(Icons.Filled.Favorite, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                         Text("Habit")
                     }
-                    OutlinedButton(onClick = { if (store.canAddNote()) noteEditor = true else store.notice = store.limitMessage("notes") }, modifier = Modifier.weight(1f)) {
+                    OutlinedButton(onClick = { if (store.canAddNote()) noteEditor = true else store.showLimit("notes") }, modifier = Modifier.weight(1f)) {
                         Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                         Text("Note")
@@ -198,6 +235,28 @@ fun HomeScreen(store: DailyFlowStore, navigate: (AppSection) -> Unit) {
         }
         item {
             TodayProgressCard(store) { navigate(AppSection.HABITS) }
+        }
+        item {
+            SectionCard(title = "Focus vibe", actionLabel = "Settings", onAction = { navigate(AppSection.SETTINGS) }) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    FlowMascot(FlowPose.MUSIC, modifier = Modifier.size(72.dp), reducedMotion = store.reducedMotion)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(store.selectedFocusVibe.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(store.selectedFocusVibe.description, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (store.focusActive) Text("Active for ${formatFocusElapsed(store.focusElapsedMillis(nowTick))}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+                FocusVisualizer(active = store.focusActive, reducedMotion = store.reducedMotion)
+                Button(
+                    onClick = { if (store.focusActive) store.stopFocusSession() else store.startFocusSession() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(if (store.focusActive) Icons.Filled.Pause else Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (store.focusActive) "Stop focus mode" else "Start focus session")
+                }
+                Text("Music linking is coming later; this local vibe is just a calm focus profile for now.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         item {
             SectionCard(title = "Focus for today", actionLabel = "Tasks", onAction = { navigate(AppSection.TASKS) }) {
@@ -256,4 +315,11 @@ private fun TodayProgressCard(store: DailyFlowStore, onOpenHabits: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+}
+
+private fun formatFocusElapsed(elapsedMillis: Long): String {
+    val totalSeconds = elapsedMillis / 1_000L
+    val minutes = totalSeconds / 60L
+    val seconds = totalSeconds % 60L
+    return "%02d:%02d".format(minutes, seconds)
 }

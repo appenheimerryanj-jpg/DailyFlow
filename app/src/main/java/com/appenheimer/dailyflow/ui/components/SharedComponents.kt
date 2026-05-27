@@ -89,6 +89,9 @@ enum class FlowPose {
     PREMIUM,
     THINKING,
     ENCOURAGING,
+    CALM,
+    LIMIT,
+    MUSIC,
     EMPTY
 }
 
@@ -98,7 +101,9 @@ enum class FlowMotion {
     CELEBRATE,
     THINKING,
     ENCOURAGING,
-    PREMIUM
+    PREMIUM,
+    CALM,
+    MUSIC
 }
 
 @Composable
@@ -172,7 +177,8 @@ fun FlowMascot(
     pose: FlowPose,
     modifier: Modifier = Modifier,
     tint: Color = MaterialTheme.colorScheme.primary,
-    motion: FlowMotion = pose.defaultMotion()
+    motion: FlowMotion = pose.defaultMotion(),
+    reducedMotion: Boolean = false
 ) {
     val infinite = rememberInfiniteTransition(label = "FlowMotion")
     val breath by infinite.animateFloat(
@@ -206,24 +212,28 @@ fun FlowMascot(
         label = "FlowGlow"
     )
 
-    val offsetY = when (motion) {
+    val offsetY = if (reducedMotion) 0f else when (motion) {
         FlowMotion.CELEBRATE, FlowMotion.HAPPY -> bob * 1.35f
-        FlowMotion.IDLE, FlowMotion.ENCOURAGING, FlowMotion.PREMIUM -> bob
+        FlowMotion.MUSIC -> bob * 0.8f
+        FlowMotion.IDLE, FlowMotion.ENCOURAGING, FlowMotion.PREMIUM, FlowMotion.CALM -> bob
         FlowMotion.THINKING -> 0f
     }
-    val rotation = when (motion) {
+    val rotation = if (reducedMotion) 0f else when (motion) {
         FlowMotion.THINKING -> sway
         FlowMotion.ENCOURAGING -> sway * 0.55f
+        FlowMotion.MUSIC -> sway * 0.35f
         else -> 0f
     }
-    val scale = when (motion) {
+    val scale = if (reducedMotion) 1f else when (motion) {
         FlowMotion.HAPPY, FlowMotion.CELEBRATE -> 1f + pulse * 0.06f
+        FlowMotion.MUSIC -> 1f + pulse * 0.035f
+        FlowMotion.CALM -> 0.99f + pulse * 0.012f
         FlowMotion.PREMIUM -> 1f + pulse * 0.025f
         else -> breath
     }
 
     Box(modifier = modifier.size(96.dp), contentAlignment = Alignment.Center) {
-        if (motion == FlowMotion.PREMIUM) {
+        if (motion == FlowMotion.PREMIUM && !reducedMotion) {
             Canvas(Modifier.fillMaxSize()) {
                 drawCircle(tint.copy(alpha = glowAlpha), radius = size.minDimension * 0.48f, center = Offset(size.width / 2f, size.height / 2f))
                 drawCircle(Color.White.copy(alpha = glowAlpha * 0.6f), radius = size.minDimension * 0.32f, center = Offset(size.width * 0.36f, size.height * 0.32f))
@@ -249,17 +259,38 @@ fun FlowMascot(
                 cubicTo(w * 0.82f, h * 0.53f, w * 0.78f, h * 0.34f, w * 0.50f, h * 0.08f)
                 close()
             }
+            drawRoundRect(Color(0xFF003F47).copy(alpha = 0.14f), topLeft = Offset(w * 0.23f, h * 0.84f), size = Size(w * 0.54f, h * 0.10f), cornerRadius = CornerRadius(w * 0.18f, h * 0.08f))
             drawPath(body, tint)
-            drawCircle(Color.White, radius = w * 0.045f, center = Offset(w * 0.42f, h * 0.53f))
-            drawCircle(Color.White, radius = w * 0.045f, center = Offset(w * 0.58f, h * 0.53f))
+            drawPath(body, Color.White.copy(alpha = 0.08f))
+            drawCircle(Color.White.copy(alpha = 0.30f), radius = w * 0.12f, center = Offset(w * 0.35f, h * 0.34f))
+            drawCircle(Color(0xFF004F59).copy(alpha = 0.18f), radius = w * 0.19f, center = Offset(w * 0.62f, h * 0.72f))
+
+            val faceColor = Color(0xFF063D45)
+            val leftEye = Offset(w * 0.42f, h * 0.52f)
+            val rightEye = Offset(w * 0.58f, h * 0.52f)
+            if (pose == FlowPose.CALM) {
+                drawArc(faceColor, 15f, 150f, false, Offset(w * 0.37f, h * 0.49f), Size(w * 0.10f, h * 0.08f), style = Stroke(width = w * 0.018f, cap = StrokeCap.Round))
+                drawArc(faceColor, 15f, 150f, false, Offset(w * 0.53f, h * 0.49f), Size(w * 0.10f, h * 0.08f), style = Stroke(width = w * 0.018f, cap = StrokeCap.Round))
+            } else {
+                drawCircle(Color.White, radius = w * 0.058f, center = leftEye)
+                drawCircle(Color.White, radius = w * 0.058f, center = rightEye)
+                val eyeLift = if (pose == FlowPose.THINKING) -h * 0.018f else 0f
+                val eyeSide = if (pose == FlowPose.LIMIT) -w * 0.012f else 0f
+                drawCircle(faceColor, radius = w * 0.026f, center = Offset(leftEye.x + eyeSide, leftEye.y + eyeLift))
+                drawCircle(faceColor, radius = w * 0.026f, center = Offset(rightEye.x + eyeSide, rightEye.y + eyeLift))
+                drawCircle(Color.White.copy(alpha = 0.86f), radius = w * 0.009f, center = Offset(leftEye.x - w * 0.010f + eyeSide, leftEye.y - h * 0.010f + eyeLift))
+                drawCircle(Color.White.copy(alpha = 0.86f), radius = w * 0.009f, center = Offset(rightEye.x - w * 0.010f + eyeSide, rightEye.y - h * 0.010f + eyeLift))
+            }
+            drawCircle(Color.White.copy(alpha = 0.22f), radius = w * 0.030f, center = Offset(w * 0.34f, h * 0.60f))
+            drawCircle(Color.White.copy(alpha = 0.22f), radius = w * 0.030f, center = Offset(w * 0.66f, h * 0.60f))
             drawArc(
-                color = Color.White,
-                startAngle = 20f,
-                sweepAngle = 140f,
+                color = faceColor,
+                startAngle = 22f,
+                sweepAngle = if (pose == FlowPose.LIMIT) 96f else 136f,
                 useCenter = false,
-                topLeft = Offset(w * 0.40f, h * 0.58f),
+                topLeft = Offset(w * 0.40f, h * 0.60f),
                 size = Size(w * 0.20f, h * 0.12f),
-                style = Stroke(width = w * (0.026f + pulse * 0.006f), cap = StrokeCap.Round)
+                style = Stroke(width = w * (0.020f + pulse * 0.003f), cap = StrokeCap.Round)
             )
 
             when (pose) {
@@ -313,12 +344,30 @@ fun FlowMascot(
                     drawLine(Color.White, Offset(w * 0.75f, h * 0.47f), Offset(w * 0.88f, h * 0.39f), strokeWidth = w * 0.024f, cap = StrokeCap.Round)
                     drawCircle(Color.White.copy(alpha = 0.18f + pulse * 0.18f), radius = w * (0.18f + pulse * 0.04f), center = Offset(w * 0.50f, h * 0.54f), style = Stroke(width = w * 0.018f))
                 }
+                FlowPose.CALM -> {
+                    drawRoundRect(Color.White.copy(alpha = 0.32f), topLeft = Offset(w * 0.27f, h * 0.72f), size = Size(w * 0.46f, h * 0.08f), cornerRadius = CornerRadius(20f, 20f))
+                    drawCircle(Color.White.copy(alpha = 0.18f), radius = w * 0.09f, center = Offset(w * 0.24f, h * 0.25f + pulse * h * 0.015f))
+                }
+                FlowPose.LIMIT -> {
+                    drawRoundRect(Color.White, topLeft = Offset(w * 0.62f, h * 0.28f), size = Size(w * 0.24f, h * 0.24f), cornerRadius = CornerRadius(12f, 12f))
+                    drawLine(tint, Offset(w * 0.74f, h * 0.34f), Offset(w * 0.74f, h * 0.42f), strokeWidth = w * 0.018f, cap = StrokeCap.Round)
+                    drawCircle(tint, radius = w * 0.012f, center = Offset(w * 0.74f, h * 0.47f))
+                    drawLine(Color.White, Offset(w * 0.24f, h * 0.48f), Offset(w * 0.14f, h * 0.54f), strokeWidth = w * 0.022f, cap = StrokeCap.Round)
+                }
+                FlowPose.MUSIC -> {
+                    repeat(4) { index ->
+                        val x = w * (0.62f + index * 0.055f)
+                        val bar = h * (0.08f + ((index + 1) % 3) * 0.035f + pulse * 0.04f)
+                        drawRoundRect(Color.White.copy(alpha = 0.90f), topLeft = Offset(x, h * 0.50f - bar), size = Size(w * 0.030f, bar), cornerRadius = CornerRadius(8f, 8f))
+                    }
+                    drawCircle(Color.White.copy(alpha = 0.35f + pulse * 0.18f), radius = w * 0.20f, center = Offset(w * 0.50f, h * 0.52f), style = Stroke(width = w * 0.016f))
+                }
                 FlowPose.EMPTY -> {
                     drawRoundRect(Color.White.copy(alpha = 0.82f), topLeft = Offset(w * 0.20f, h * 0.78f), size = Size(w * 0.60f, h * 0.08f), cornerRadius = CornerRadius(20f, 20f))
                 }
             }
         }
-        if (motion == FlowMotion.CELEBRATE) {
+        if (motion == FlowMotion.CELEBRATE && !reducedMotion) {
             AmbientSparkles(modifier = Modifier.fillMaxSize(), alpha = 0.45f + pulse * 0.35f)
         }
     }
@@ -331,6 +380,9 @@ private fun FlowPose.defaultMotion(): FlowMotion = when (this) {
     FlowPose.PREMIUM -> FlowMotion.PREMIUM
     FlowPose.THINKING -> FlowMotion.THINKING
     FlowPose.ENCOURAGING, FlowPose.EMPTY -> FlowMotion.ENCOURAGING
+    FlowPose.CALM -> FlowMotion.CALM
+    FlowPose.LIMIT -> FlowMotion.ENCOURAGING
+    FlowPose.MUSIC -> FlowMotion.MUSIC
 }
 
 @Composable
@@ -395,7 +447,7 @@ fun SparkleBurst(
 }
 
 @Composable
-fun FlowDelightOverlay(event: DelightEvent?, onFinished: () -> Unit) {
+fun FlowDelightOverlay(event: DelightEvent?, reducedMotion: Boolean = false, onFinished: () -> Unit) {
     var lastEvent by remember { mutableStateOf<DelightEvent?>(null) }
     LaunchedEffect(event?.createdAt) {
         if (event != null) {
@@ -429,8 +481,8 @@ fun FlowDelightOverlay(event: DelightEvent?, onFinished: () -> Unit) {
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            FlowMascot(current.type.delightPose(), modifier = Modifier.size(68.dp), motion = FlowMotion.CELEBRATE)
-                            SparkleBurst(trigger = current.createdAt, modifier = Modifier.size(92.dp))
+                            FlowMascot(current.type.delightPose(), modifier = Modifier.size(68.dp), motion = FlowMotion.CELEBRATE, reducedMotion = reducedMotion)
+                            if (!reducedMotion) SparkleBurst(trigger = current.createdAt, modifier = Modifier.size(92.dp))
                         }
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text("Flow noticed", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
@@ -447,8 +499,14 @@ private fun DelightType.delightPose(): FlowPose = when (this) {
     DelightType.FIRST_TASK -> FlowPose.CHECKLIST
     DelightType.FIRST_NOTE -> FlowPose.NOTE
     DelightType.PREMIUM_UNLOCK -> FlowPose.PREMIUM
+    DelightType.FOCUS_START -> FlowPose.MUSIC
+    DelightType.LIMIT_REACHED -> FlowPose.LIMIT
     DelightType.FIRST_HABIT, DelightType.HABIT_COMPLETE -> FlowPose.ENCOURAGING
-    DelightType.TASK_COMPLETE, DelightType.CLEAR_COMPLETED, DelightType.ALL_HABITS_DONE, DelightType.NEW_BEST_STREAK -> FlowPose.CELEBRATE
+    DelightType.TASK_COMPLETE,
+    DelightType.CLEAR_COMPLETED,
+    DelightType.ALL_HABITS_DONE,
+    DelightType.NEW_BEST_STREAK,
+    DelightType.DAILY_GOAL_REACHED -> FlowPose.CELEBRATE
 }
 
 @Composable
@@ -514,7 +572,7 @@ fun LimitCard(title: String, used: Int, limit: Int, premium: Boolean, message: S
             AnimatedProgressBar(progress = progress, modifier = Modifier.fillMaxWidth())
             if (used >= limit) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    FlowMascot(FlowPose.PREMIUM, modifier = Modifier.size(44.dp), tint = MaterialTheme.colorScheme.error, motion = FlowMotion.ENCOURAGING)
+                    FlowMascot(FlowPose.LIMIT, modifier = Modifier.size(44.dp), tint = MaterialTheme.colorScheme.error, motion = FlowMotion.ENCOURAGING)
                     Spacer(Modifier.width(8.dp))
                     Text(message, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.weight(1f))
                 }
@@ -531,6 +589,33 @@ fun AnimatedProgressBar(progress: Float, modifier: Modifier = Modifier) {
         label = "DailyFlowProgress"
     )
     LinearProgressIndicator(progress = { animated }, modifier = modifier)
+}
+
+@Composable
+fun FocusVisualizer(active: Boolean, reducedMotion: Boolean, modifier: Modifier = Modifier) {
+    val infinite = rememberInfiniteTransition(label = "FocusVisualizer")
+    val phase by infinite.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1100, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "FocusPhase"
+    )
+    Canvas(modifier = modifier.height(42.dp).fillMaxWidth()) {
+        val bars = 12
+        val gap = size.width / (bars * 2f)
+        val barWidth = gap * 0.76f
+        repeat(bars) { index ->
+            val wave = if (!active || reducedMotion) 0.45f else 0.25f + 0.60f * (((index % 4) + 1) / 4f) * (0.55f + phase * 0.45f)
+            val barHeight = size.height * wave.coerceIn(0.18f, 0.95f)
+            val x = gap * 0.75f + index * gap * 2f
+            drawRoundRect(
+                color = if (active) Color(0xFF00A6B8).copy(alpha = 0.78f) else Color(0xFF6C7D80).copy(alpha = 0.32f),
+                topLeft = Offset(x, size.height - barHeight),
+                size = Size(barWidth, barHeight),
+                cornerRadius = CornerRadius(18f, 18f)
+            )
+        }
+    }
 }
 
 @Composable

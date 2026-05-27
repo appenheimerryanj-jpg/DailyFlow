@@ -88,7 +88,7 @@ fun DailyFlowApp() {
                     SnackbarHost(snackbarHostState) { data ->
                         Snackbar(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.primaryContainer) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                FlowMascot(FlowPose.HAPPY, modifier = Modifier.size(36.dp), motion = FlowMotion.HAPPY)
+                                FlowMascot(FlowPose.HAPPY, modifier = Modifier.size(36.dp), motion = FlowMotion.HAPPY, reducedMotion = store.reducedMotion)
                                 Spacer(Modifier.width(10.dp))
                                 Text(data.visuals.message, color = androidx.compose.material3.MaterialTheme.colorScheme.onPrimaryContainer)
                             }
@@ -166,7 +166,7 @@ fun DailyFlowApp() {
                     }
                 }
             }
-            FlowDelightOverlay(event = store.delight, onFinished = { store.delight = null })
+            FlowDelightOverlay(event = store.delight, reducedMotion = store.reducedMotion, onFinished = { store.delight = null })
         }
     }
 }

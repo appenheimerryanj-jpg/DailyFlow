@@ -104,7 +104,7 @@ fun NotesScreen(store: DailyFlowStore) {
                 actionText = "Add note",
                 actionIcon = Icons.Filled.Add,
                 onAction = {
-                    if (store.canAddNote()) creatingNote = true else store.notice = store.limitMessage("notes")
+                    if (store.canAddNote()) creatingNote = true else store.showLimit("notes")
                 }
             )
         }

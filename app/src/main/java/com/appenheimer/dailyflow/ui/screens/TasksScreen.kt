@@ -118,7 +118,7 @@ fun TasksScreen(store: DailyFlowStore) {
                         editingTask = null
                         showEditor = true
                     } else {
-                        store.notice = store.limitMessage("tasks")
+                        store.showLimit("tasks")
                     }
                 }
             )

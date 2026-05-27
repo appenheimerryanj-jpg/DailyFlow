@@ -2,6 +2,7 @@ package com.appenheimer.dailyflow.data
 
 import android.app.Activity
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.android.billingclient.api.AcknowledgePurchaseParams
@@ -16,12 +17,14 @@ import com.android.billingclient.api.PurchasesUpdatedListener
 import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
 import com.appenheimer.dailyflow.BuildConfig
+import com.appenheimer.dailyflow.model.DAILY_MOMENTUM_GOAL
 import com.appenheimer.dailyflow.model.DailyTask
 import com.appenheimer.dailyflow.model.DelightEvent
 import com.appenheimer.dailyflow.model.DelightType
 import com.appenheimer.dailyflow.model.FREE_ACTIVE_TASK_LIMIT
 import com.appenheimer.dailyflow.model.FREE_HABIT_LIMIT
 import com.appenheimer.dailyflow.model.FREE_NOTE_LIMIT
+import com.appenheimer.dailyflow.model.FocusVibe
 import com.appenheimer.dailyflow.model.Habit
 import com.appenheimer.dailyflow.model.Note
 import com.appenheimer.dailyflow.model.PREMIUM_PRODUCT_ID
@@ -54,8 +57,19 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
     var billingReady by mutableStateOf(false)
     var billingLoading by mutableStateOf(true)
     var purchaseStatus by mutableStateOf("Premium unlocks unlimited tasks, habits, and notes.")
+    var soundEffectsEnabled by mutableStateOf(prefs.getBoolean("sound_effects_enabled", true))
+    var celebrationEffectsEnabled by mutableStateOf(prefs.getBoolean("celebration_effects_enabled", true))
+    var reducedMotion by mutableStateOf(prefs.getBoolean("reduced_motion", false))
+    var selectedFocusVibeName by mutableStateOf(prefs.getString("focus_vibe", FocusVibe.DEEP_FOCUS.name) ?: FocusVibe.DEEP_FOCUS.name)
+    var focusActive by mutableStateOf(false)
+    var focusStartedAt by mutableStateOf(0L)
+    var dailyMomentumDate by mutableStateOf(prefs.getString("momentum_daily_date", todayKey()) ?: todayKey())
+    var dailyMomentumPoints by mutableIntStateOf(prefs.getInt("momentum_daily_points", 0))
+    var totalMomentumPoints by mutableIntStateOf(prefs.getInt("momentum_total_points", 0))
 
     private var premiumDetails: ProductDetails? = null
+    private val sounds = SoundManager(activity.applicationContext)
+    private val spotifyAuth = SpotifyAuthManager()
     private val billing = BillingClient.newBuilder(activity)
         .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
         .setListener(this)
@@ -65,8 +79,28 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
     val completedTaskCount: Int get() = tasks.count { it.done }
     val doneHabitsTodayCount: Int get() = habits.count { it.lastDone == todayKey() }
     val noteCount: Int get() = notes.size
+    val selectedFocusVibe: FocusVibe
+        get() = FocusVibe.entries.firstOrNull { it.name == selectedFocusVibeName } ?: FocusVibe.DEEP_FOCUS
+    val dailyMomentumProgress: Float get() = (dailyMomentumPoints.toFloat() / DAILY_MOMENTUM_GOAL.toFloat()).coerceIn(0f, 1f)
+    val momentumRank: String
+        get() = when {
+            totalMomentumPoints >= 900 -> "Tide Builder"
+            totalMomentumPoints >= 450 -> "Current Keeper"
+            totalMomentumPoints >= 180 -> "Steady Stream"
+            totalMomentumPoints >= 60 -> "Ripple Maker"
+            else -> "Fresh Start"
+        }
+    val flowMood: String
+        get() = when {
+            focusActive -> "focused with you"
+            dailyMomentumPoints >= DAILY_MOMENTUM_GOAL -> "glowing"
+            doneHabitsTodayCount == habits.size && habits.isNotEmpty() -> "proud"
+            completedTaskCount > 0 || doneHabitsTodayCount > 0 -> "encouraged"
+            else -> "calm and ready"
+        }
 
     init {
+        resetDailyMomentumIfNeeded()
         normalizeMissedHabits()
         saveAll()
         connectBilling()
@@ -189,20 +223,113 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
         else -> "Premium gives Flow unlimited room for your day."
     }
 
+    fun showLimit(kind: String) {
+        notice = limitMessage(kind)
+        playSound(DailyFlowSound.LIMIT_OR_ERROR)
+        showDelight(DelightType.LIMIT_REACHED, "Flow found the free limit. Premium opens more room when you are ready.")
+    }
+
     private fun showDelight(type: DelightType, message: String) {
+        if (!celebrationEffectsEnabled) return
         delight = DelightEvent(type, message)
     }
+
+    private fun playSound(sound: DailyFlowSound) {
+        sounds.play(sound, soundEffectsEnabled)
+    }
+
+    private fun resetDailyMomentumIfNeeded() {
+        val today = todayKey()
+        if (dailyMomentumDate != today) {
+            dailyMomentumDate = today
+            dailyMomentumPoints = 0
+            prefs.edit()
+                .putString("momentum_daily_date", today)
+                .putInt("momentum_daily_points", dailyMomentumPoints)
+                .apply()
+        }
+    }
+
+    private fun awardMomentum(points: Int, sound: DailyFlowSound): Boolean {
+        resetDailyMomentumIfNeeded()
+        val before = dailyMomentumPoints
+        dailyMomentumPoints = (dailyMomentumPoints + points).coerceAtLeast(0)
+        totalMomentumPoints = (totalMomentumPoints + points).coerceAtLeast(0)
+        prefs.edit()
+            .putString("momentum_daily_date", dailyMomentumDate)
+            .putInt("momentum_daily_points", dailyMomentumPoints)
+            .putInt("momentum_total_points", totalMomentumPoints)
+            .apply()
+        playSound(sound)
+        if (before < DAILY_MOMENTUM_GOAL && dailyMomentumPoints >= DAILY_MOMENTUM_GOAL) {
+            playSound(DailyFlowSound.ALL_HABITS_COMPLETE)
+            showDelight(DelightType.DAILY_GOAL_REACHED, "Daily momentum goal reached. Flow is glowing for that finish.")
+            return true
+        }
+        return false
+    }
+
+    fun updateSoundEffectsEnabled(enabled: Boolean) {
+        soundEffectsEnabled = enabled
+        prefs.edit().putBoolean("sound_effects_enabled", enabled).apply()
+        if (enabled) previewSound()
+    }
+
+    fun updateCelebrationEffectsEnabled(enabled: Boolean) {
+        celebrationEffectsEnabled = enabled
+        prefs.edit().putBoolean("celebration_effects_enabled", enabled).apply()
+        notice = if (enabled) "Flow celebrations are on." else "Flow celebrations are quieter now."
+    }
+
+    fun updateReducedMotion(enabled: Boolean) {
+        reducedMotion = enabled
+        prefs.edit().putBoolean("reduced_motion", enabled).apply()
+        notice = if (enabled) "Reduced motion is on." else "Flow motion is back on."
+    }
+
+    fun setFocusVibe(vibe: FocusVibe) {
+        selectedFocusVibeName = vibe.name
+        prefs.edit().putString("focus_vibe", vibe.name).apply()
+        notice = "Focus vibe set to ${vibe.label}."
+        playSound(DailyFlowSound.SOFT_TAP)
+    }
+
+    fun previewSound() {
+        playSound(DailyFlowSound.SOFT_TAP)
+        notice = "Flow played a soft preview."
+    }
+
+    fun startFocusSession() {
+        focusActive = true
+        focusStartedAt = nowMillis()
+        notice = "${selectedFocusVibe.label} started. Flow is settling in with you."
+        playSound(DailyFlowSound.GENTLE_FOCUS_START)
+        showDelight(DelightType.FOCUS_START, "Focus mode started. Flow will keep the vibe gentle.")
+    }
+
+    fun stopFocusSession() {
+        focusActive = false
+        focusStartedAt = 0L
+        notice = "Focus mode paused. Flow saved the vibe for later."
+    }
+
+    fun focusElapsedMillis(now: Long = nowMillis()): Long {
+        return if (focusActive && focusStartedAt > 0L) (now - focusStartedAt).coerceAtLeast(0L) else 0L
+    }
+
+    fun musicProfileMessage(): String = spotifyAuth.connectionMessage()
 
     fun upsertTask(existingId: String?, text: String, priority: TaskPriority, dueDate: String): Boolean {
         val cleanText = text.trim()
         if (cleanText.isBlank()) {
             notice = "Flow needs a task title first."
+            playSound(DailyFlowSound.LIMIT_OR_ERROR)
             return false
         }
         val now = nowMillis()
         if (existingId == null) {
             if (!canAddTask()) {
-                notice = limitMessage("tasks")
+                showLimit("tasks")
                 return false
             }
             val wasFirstTask = tasks.isEmpty()
@@ -215,7 +342,8 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
                 updatedAt = now
             )
             notice = "Flow saved that task."
-            if (wasFirstTask) {
+            val reachedGoal = awardMomentum(if (wasFirstTask) 8 else 4, DailyFlowSound.SOFT_TAP)
+            if (wasFirstTask && !reachedGoal) {
                 showDelight(DelightType.FIRST_TASK, "First task placed. Flow is already moving with you.")
             }
         } else {
@@ -234,7 +362,7 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
 
     fun toggleTask(task: DailyTask) {
         if (task.done && !canAddTask()) {
-            notice = limitMessage("tasks")
+            showLimit("tasks")
             return
         }
         tasks = tasks.map { item ->
@@ -243,7 +371,8 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
         saveJson("tasks", tasks)
         notice = if (task.done) "Flow reopened that task." else "Nice work. Flow marked that task complete."
         if (!task.done) {
-            showDelight(DelightType.TASK_COMPLETE, "Done. Flow felt that momentum.")
+            val reachedGoal = awardMomentum(10, DailyFlowSound.TASK_COMPLETE)
+            if (!reachedGoal) showDelight(DelightType.TASK_COMPLETE, "Done. Flow felt that momentum.")
         }
     }
 
@@ -259,7 +388,8 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
         saveJson("tasks", tasks)
         notice = if (removed == 1) "Flow cleared 1 completed task." else "Flow cleared $removed completed tasks."
         if (removed > 0) {
-            showDelight(DelightType.CLEAR_COMPLETED, "Clean slate. Flow made a little more room.")
+            val reachedGoal = awardMomentum(3, DailyFlowSound.SOFT_TAP)
+            if (!reachedGoal) showDelight(DelightType.CLEAR_COMPLETED, "Clean slate. Flow made a little more room.")
         }
     }
 
@@ -267,18 +397,20 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
         val cleanName = name.trim()
         if (cleanName.isBlank()) {
             notice = "Flow needs a habit name first."
+            playSound(DailyFlowSound.LIMIT_OR_ERROR)
             return false
         }
         val now = nowMillis()
         if (existingId == null) {
             if (!canAddHabit()) {
-                notice = limitMessage("habits")
+                showLimit("habits")
                 return false
             }
             val wasFirstHabit = habits.isEmpty()
             habits = habits + Habit(id = UUID.randomUUID().toString(), name = cleanName, createdAt = now, updatedAt = now)
             notice = "Flow saved that habit."
-            if (wasFirstHabit) {
+            val reachedGoal = awardMomentum(if (wasFirstHabit) 10 else 5, DailyFlowSound.SOFT_TAP)
+            if (wasFirstHabit && !reachedGoal) {
                 showDelight(DelightType.FIRST_HABIT, "Tiny habit, real momentum. Flow is cheering for the first check-in.")
             }
         } else {
@@ -297,6 +429,7 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
         var newBestStreak = false
         if (habit.lastDone == today) {
             notice = "Flow already counted ${habit.safeName()} today."
+            playSound(DailyFlowSound.SOFT_TAP)
             return
         }
         habits = habits.map { item ->
@@ -318,9 +451,18 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
         notice = "Momentum logged. Flow updated the streak."
         val allHabitsDone = habits.isNotEmpty() && habits.all { it.lastDone == today }
         when {
-            allHabitsDone -> showDelight(DelightType.ALL_HABITS_DONE, "All habits checked in. Flow is celebrating the full set.")
-            newBestStreak -> showDelight(DelightType.NEW_BEST_STREAK, "New best streak. Flow is sparkling for that consistency.")
-            else -> showDelight(DelightType.HABIT_COMPLETE, "Habit checked in. Flow gave the streak a bounce.")
+            allHabitsDone -> {
+                val reachedGoal = awardMomentum(25, DailyFlowSound.ALL_HABITS_COMPLETE)
+                if (!reachedGoal) showDelight(DelightType.ALL_HABITS_DONE, if (newBestStreak) "All habits checked in, and that streak just got stronger." else "All habits checked in. Flow is celebrating the full set.")
+            }
+            newBestStreak -> {
+                val reachedGoal = awardMomentum(20, DailyFlowSound.STREAK_UP)
+                if (!reachedGoal) showDelight(DelightType.NEW_BEST_STREAK, "New best streak. Flow is sparkling for that consistency.")
+            }
+            else -> {
+                val reachedGoal = awardMomentum(15, DailyFlowSound.HABIT_COMPLETE)
+                if (!reachedGoal) showDelight(DelightType.HABIT_COMPLETE, "Habit checked in. Flow gave the streak a bounce.")
+            }
         }
     }
 
@@ -343,18 +485,20 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
         val cleanBody = body.trim()
         if (cleanTitle.isBlank() && cleanBody.isBlank()) {
             notice = "Flow needs a note title or body first."
+            playSound(DailyFlowSound.LIMIT_OR_ERROR)
             return false
         }
         val now = nowMillis()
         if (existingId == null) {
             if (!canAddNote()) {
-                notice = limitMessage("notes")
+                showLimit("notes")
                 return false
             }
             val wasFirstNote = notes.isEmpty()
             notes = listOf(Note(id = UUID.randomUUID().toString(), title = cleanTitle, body = cleanBody, createdAt = now, updatedAt = now)) + notes
             notice = "Flow saved that note."
-            if (wasFirstNote) {
+            val reachedGoal = awardMomentum(if (wasFirstNote) 8 else 5, DailyFlowSound.SOFT_TAP)
+            if (wasFirstNote && !reachedGoal) {
                 showDelight(DelightType.FIRST_NOTE, "First note captured. Flow tucked it somewhere easy to find.")
             }
         } else {
@@ -377,7 +521,17 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
         tasks = emptyList()
         habits = emptyList()
         notes = emptyList()
+        dailyMomentumDate = todayKey()
+        dailyMomentumPoints = 0
+        totalMomentumPoints = 0
+        focusActive = false
+        focusStartedAt = 0L
         saveAll()
+        prefs.edit()
+            .putString("momentum_daily_date", dailyMomentumDate)
+            .putInt("momentum_daily_points", dailyMomentumPoints)
+            .putInt("momentum_total_points", totalMomentumPoints)
+            .apply()
         notice = "Flow reset your local workspace. Premium status was kept."
     }
 
@@ -395,6 +549,7 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
             prefs.edit().putBoolean("premium", true).apply()
             purchaseStatus = "Debug unlock active for testing."
             notice = "Debug unlock enabled for testing only."
+            playSound(DailyFlowSound.PREMIUM_SUCCESS)
             showDelight(DelightType.PREMIUM_UNLOCK, "Premium test unlock active. Flow has unlimited space.")
         }
     }
@@ -505,6 +660,7 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
             premium = true
             prefs.edit().putBoolean("premium", true).apply()
             purchaseStatus = "Premium unlocked. Flow has unlimited room now."
+            playSound(DailyFlowSound.PREMIUM_SUCCESS)
             showDelight(DelightType.PREMIUM_UNLOCK, "Premium unlocked. Flow has unlimited room now.")
         }
         if (!purchase.isAcknowledged) {
@@ -518,5 +674,6 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
 
     fun close() {
         if (billing.isReady) billing.endConnection()
+        sounds.release()
     }
 }

@@ -80,7 +80,7 @@ fun PremiumScreen(store: DailyFlowStore) {
                         )
                         AssistChip(onClick = {}, enabled = false, label = { Text(if (store.billingLoading) "Billing connecting" else if (store.billingReady) "Billing ready" else "Billing unavailable") })
                     }
-                    FlowMascot(if (store.premium) FlowPose.CELEBRATE else FlowPose.PREMIUM, modifier = Modifier.size(104.dp))
+                    FlowMascot(FlowPose.PREMIUM, modifier = Modifier.size(104.dp), reducedMotion = store.reducedMotion)
                 }
             }
         }

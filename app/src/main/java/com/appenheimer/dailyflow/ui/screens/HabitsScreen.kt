@@ -94,7 +94,7 @@ fun HabitsScreen(store: DailyFlowStore) {
                         editingHabit = null
                         showEditor = true
                     } else {
-                        store.notice = store.limitMessage("habits")
+                        store.showLimit("habits")
                     }
                 }
             )
