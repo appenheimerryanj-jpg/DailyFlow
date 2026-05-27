@@ -1,0 +1,21 @@
+plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
+
+android { namespace 'com.appenheimer.dailyflow'; compileSdk 35
+    defaultConfig { applicationId 'com.appenheimer.dailyflow'; minSdk 26; targetSdk 35; versionCode 1; versionName '1.0.0' }
+    buildFeatures { compose true; buildConfig true }
+    composeOptions { kotlinCompilerExtensionVersion '1.5.15' }
+    signingConfigs { release { storeFile file(System.getenv('DAILYFLOW_KEYSTORE') ?: 'upload-keystore.jks'); storePassword System.getenv('DAILYFLOW_KEYSTORE_PASSWORD') ?: ''; keyAlias System.getenv('DAILYFLOW_KEY_ALIAS') ?: 'dailyflow'; keyPassword System.getenv('DAILYFLOW_KEY_PASSWORD') ?: '' } }
+    buildTypes { release { minifyEnabled true; shrinkResources true; proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'; signingConfig signingConfigs.release } }
+}
+
+dependencies {
+    implementation platform('androidx.compose:compose-bom:2025.04.01')
+    implementation 'androidx.activity:activity-compose:1.10.1'
+    implementation 'androidx.compose.ui:ui'
+    implementation 'androidx.compose.material3:material3'
+    implementation 'androidx.compose.material:material-icons-extended'
+    implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.8.7'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7'
+    implementation 'com.android.billingclient:billing-ktx:9.0.0'
+    implementation 'com.google.code.gson:gson:2.11.0'
+}
