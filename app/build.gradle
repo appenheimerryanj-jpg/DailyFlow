@@ -1,11 +1,43 @@
-plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'org.jetbrains.kotlin.plugin.compose'
+}
 
-android { namespace 'com.appenheimer.dailyflow'; compileSdk 35
-    defaultConfig { applicationId 'com.appenheimer.dailyflow'; minSdk 26; targetSdk 35; versionCode 1; versionName '1.0.0' }
-    buildFeatures { compose true; buildConfig true }
-    composeOptions { kotlinCompilerExtensionVersion '1.5.15' }
-    signingConfigs { release { storeFile file(System.getenv('DAILYFLOW_KEYSTORE') ?: 'upload-keystore.jks'); storePassword System.getenv('DAILYFLOW_KEYSTORE_PASSWORD') ?: ''; keyAlias System.getenv('DAILYFLOW_KEY_ALIAS') ?: 'dailyflow'; keyPassword System.getenv('DAILYFLOW_KEY_PASSWORD') ?: '' } }
-    buildTypes { release { minifyEnabled true; shrinkResources true; proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'; signingConfig signingConfigs.release } }
+android {
+    namespace 'com.appenheimer.dailyflow'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.appenheimer.dailyflow'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '1.0.0'
+    }
+
+    buildFeatures {
+        compose true
+        buildConfig true
+    }
+
+    signingConfigs {
+        release {
+            storeFile file(System.getenv('DAILYFLOW_KEYSTORE') ?: 'upload-keystore.jks')
+            storePassword System.getenv('DAILYFLOW_KEYSTORE_PASSWORD') ?: ''
+            keyAlias System.getenv('DAILYFLOW_KEY_ALIAS') ?: 'dailyflow'
+            keyPassword System.getenv('DAILYFLOW_KEY_PASSWORD') ?: ''
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+    }
 }
 
 dependencies {
