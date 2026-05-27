@@ -11,6 +11,24 @@ const val FREE_ACTIVE_TASK_LIMIT = 7
 const val FREE_HABIT_LIMIT = 3
 const val FREE_NOTE_LIMIT = 5
 
+enum class DelightType {
+    TASK_COMPLETE,
+    HABIT_COMPLETE,
+    ALL_HABITS_DONE,
+    NEW_BEST_STREAK,
+    FIRST_TASK,
+    FIRST_HABIT,
+    FIRST_NOTE,
+    CLEAR_COMPLETED,
+    PREMIUM_UNLOCK
+}
+
+data class DelightEvent(
+    val type: DelightType,
+    val message: String,
+    val createdAt: Long = nowMillis()
+)
+
 enum class TaskPriority(val label: String, val rank: Int) {
     LOW("Low", 2),
     MEDIUM("Medium", 1),

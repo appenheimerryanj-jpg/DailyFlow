@@ -134,7 +134,7 @@ fun NotesScreen(store: DailyFlowStore) {
                     } else {
                         "Flow could not find that phrase. Try another word from the title or body."
                     },
-                    if (query.isBlank()) FlowPose.NOTE else FlowPose.EMPTY
+                    if (query.isBlank()) FlowPose.NOTE else FlowPose.THINKING
                 )
             }
         } else {

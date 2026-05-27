@@ -1,6 +1,9 @@
 package com.appenheimer.dailyflow.ui.screens
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,12 +32,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -51,6 +56,7 @@ import com.appenheimer.dailyflow.ui.components.LimitCard
 import com.appenheimer.dailyflow.ui.components.PriorityBadge
 import com.appenheimer.dailyflow.ui.components.ScreenHeader
 import com.appenheimer.dailyflow.ui.components.ScreenList
+import com.appenheimer.dailyflow.ui.components.SparkleBurst
 
 @Composable
 fun TasksScreen(store: DailyFlowStore) {
@@ -152,7 +158,7 @@ fun TasksScreen(store: DailyFlowStore) {
                         TaskFilter.ACTIVE -> "Everything active is handled. Add the next useful task when you are ready."
                         TaskFilter.COMPLETED -> "Completed tasks will appear here after you check them off."
                     },
-                    FlowPose.CHECKLIST
+                    if (filter == TaskFilter.COMPLETED) FlowPose.THINKING else FlowPose.ENCOURAGING
                 )
             }
         } else {
@@ -173,15 +179,35 @@ fun TasksScreen(store: DailyFlowStore) {
 
 @Composable
 private fun TaskCard(task: DailyTask, onToggle: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
+    var burstKey by remember { mutableIntStateOf(0) }
+    val cardScale by animateFloatAsState(
+        targetValue = if (task.done) 1.015f else 1f,
+        animationSpec = tween(180),
+        label = "TaskCompleteScale"
+    )
     ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = cardScale
+                scaleY = cardScale
+            },
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.elevatedCardColors(
             containerColor = if (task.done) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface
         )
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(checked = task.done, onCheckedChange = { onToggle() })
+            Box(contentAlignment = Alignment.Center) {
+                Checkbox(
+                    checked = task.done,
+                    onCheckedChange = {
+                        if (!task.done) burstKey += 1
+                        onToggle()
+                    }
+                )
+                SparkleBurst(trigger = burstKey.toLong(), modifier = Modifier.size(54.dp))
+            }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
                     task.safeText(),

@@ -1,7 +1,15 @@
 package com.appenheimer.dailyflow.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,7 +35,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -47,8 +57,10 @@ import com.appenheimer.dailyflow.ui.components.FlowMascot
 import com.appenheimer.dailyflow.ui.components.FlowPose
 import com.appenheimer.dailyflow.ui.components.ScreenList
 import com.appenheimer.dailyflow.ui.components.SectionCard
+import com.appenheimer.dailyflow.ui.components.SparkleBurst
 import com.appenheimer.dailyflow.ui.components.StatChip
 import com.appenheimer.dailyflow.ui.components.TaskCompactRow
+import kotlinx.coroutines.delay
 
 @Composable
 fun HomeScreen(store: DailyFlowStore, navigate: (AppSection) -> Unit) {
@@ -63,7 +75,16 @@ fun HomeScreen(store: DailyFlowStore, navigate: (AppSection) -> Unit) {
             "Flow says: small plans make real momentum."
         )
     }
-    val flowMessage = remember { flowMessages[((System.currentTimeMillis() / 86_400_000L) % flowMessages.size).toInt()] }
+    var flowMessageIndex by remember {
+        mutableIntStateOf(((System.currentTimeMillis() / 86_400_000L) % flowMessages.size).toInt())
+    }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(7_000)
+            flowMessageIndex = (flowMessageIndex + 1) % flowMessages.size
+        }
+    }
+    val flowMessage = flowMessages[flowMessageIndex]
 
     if (taskEditor) {
         TaskEditorDialog(
@@ -117,7 +138,16 @@ fun HomeScreen(store: DailyFlowStore, navigate: (AppSection) -> Unit) {
                         Text(greetingForNow(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                         Text("Flow is ready for today", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                         Text("Plan better. Build momentum.")
-                        Text(flowMessage, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        AnimatedContent(
+                            targetState = flowMessage,
+                            transitionSpec = {
+                                (fadeIn(tween(220)) + slideInVertically(tween(220)) { it / 3 }) togetherWith
+                                    (fadeOut(tween(180)) + slideOutVertically(tween(180)) { -it / 3 })
+                            },
+                            label = "FlowMessage"
+                        ) { message ->
+                            Text(message, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             StatChip("${store.activeTaskCount} active")
                             StatChip("${store.doneHabitsTodayCount}/${store.habits.size} habits")
@@ -136,7 +166,13 @@ fun HomeScreen(store: DailyFlowStore, navigate: (AppSection) -> Unit) {
                 FlowStatRow("Habits completed today", "${store.doneHabitsTodayCount}/${store.habits.size}", Icons.Filled.Favorite) { navigate(AppSection.HABITS) }
                 FlowStatRow("Notes captured", store.noteCount.toString(), Icons.Filled.Edit) { navigate(AppSection.NOTES) }
                 val totalTasks = (store.activeTaskCount + store.completedTaskCount).coerceAtLeast(1)
-                AnimatedProgressBar(store.completedTaskCount.toFloat() / totalTasks.toFloat(), Modifier.fillMaxWidth())
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    AnimatedProgressBar(store.completedTaskCount.toFloat() / totalTasks.toFloat(), Modifier.fillMaxWidth())
+                    SparkleBurst(
+                        trigger = (store.completedTaskCount + store.doneHabitsTodayCount).toLong(),
+                        modifier = Modifier.size(64.dp)
+                    )
+                }
             }
         }
         item {

@@ -1,6 +1,9 @@
 package com.appenheimer.dailyflow.ui.screens
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,11 +31,13 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.appenheimer.dailyflow.data.DailyFlowStore
@@ -48,6 +53,7 @@ import com.appenheimer.dailyflow.ui.components.LimitCard
 import com.appenheimer.dailyflow.ui.components.ScreenHeader
 import com.appenheimer.dailyflow.ui.components.ScreenList
 import com.appenheimer.dailyflow.ui.components.SectionCard
+import com.appenheimer.dailyflow.ui.components.SparkleBurst
 
 @Composable
 fun HabitsScreen(store: DailyFlowStore) {
@@ -130,8 +136,19 @@ fun HabitsScreen(store: DailyFlowStore) {
 @Composable
 private fun HabitCard(habit: Habit, onComplete: () -> Unit, onReset: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
     val doneToday = habit.doneToday()
+    var burstKey by remember { mutableIntStateOf(0) }
+    val cardScale by animateFloatAsState(
+        targetValue = if (doneToday) 1.015f else 1f,
+        animationSpec = tween(180),
+        label = "HabitDoneScale"
+    )
     ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = cardScale
+                scaleY = cardScale
+            },
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.elevatedCardColors(
             containerColor = if (doneToday) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
@@ -149,13 +166,23 @@ private fun HabitCard(habit: Habit, onComplete: () -> Unit, onReset: () -> Unit,
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 StreakBox("Current", habit.streak.toString(), Modifier.weight(1f))
-                StreakBox("Best", habit.bestStreak.toString(), Modifier.weight(1f))
+                StreakBox("Best", habit.bestStreak.toString(), Modifier.weight(1f), highlight = doneToday && habit.bestStreak > 0 && habit.streak >= habit.bestStreak)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Button(onClick = onComplete, enabled = !doneToday, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(if (doneToday) "Checked in" else "Mark done")
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    Button(
+                        onClick = {
+                            if (!doneToday) burstKey += 1
+                            onComplete()
+                        },
+                        enabled = !doneToday,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (doneToday) "Checked in" else "Mark done")
+                    }
+                    SparkleBurst(trigger = burstKey.toLong(), modifier = Modifier.size(72.dp))
                 }
                 OutlinedButton(onClick = onReset) { Text("Reset") }
                 IconButton(onClick = onEdit) { Icon(Icons.Filled.Edit, contentDescription = "Edit habit") }
@@ -166,8 +193,22 @@ private fun HabitCard(habit: Habit, onComplete: () -> Unit, onReset: () -> Unit,
 }
 
 @Composable
-private fun StreakBox(label: String, value: String, modifier: Modifier = Modifier) {
-    ElevatedCard(modifier = modifier, shape = RoundedCornerShape(8.dp)) {
+private fun StreakBox(label: String, value: String, modifier: Modifier = Modifier, highlight: Boolean = false) {
+    val scale by animateFloatAsState(
+        targetValue = if (highlight) 1.04f else 1f,
+        animationSpec = tween(220),
+        label = "StreakPulse"
+    )
+    ElevatedCard(
+        modifier = modifier.graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+        },
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = if (highlight) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surface
+        )
+    ) {
         Column(Modifier.fillMaxWidth().padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

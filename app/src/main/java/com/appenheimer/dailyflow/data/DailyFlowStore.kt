@@ -17,6 +17,8 @@ import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
 import com.appenheimer.dailyflow.BuildConfig
 import com.appenheimer.dailyflow.model.DailyTask
+import com.appenheimer.dailyflow.model.DelightEvent
+import com.appenheimer.dailyflow.model.DelightType
 import com.appenheimer.dailyflow.model.FREE_ACTIVE_TASK_LIMIT
 import com.appenheimer.dailyflow.model.FREE_HABIT_LIMIT
 import com.appenheimer.dailyflow.model.FREE_NOTE_LIMIT
@@ -43,6 +45,7 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
 
     var dataWarning by mutableStateOf<String?>(null)
     var notice by mutableStateOf<String?>(null)
+    var delight by mutableStateOf<DelightEvent?>(null)
     var onboardingCompleted by mutableStateOf(prefs.getBoolean("onboarding_completed", false))
     var tasks by mutableStateOf(sanitizeTasks(loadJson<List<DailyTask>>("tasks") ?: seedTasks()))
     var habits by mutableStateOf(sanitizeHabits(loadJson<List<Habit>>("habits") ?: seedHabits()))
@@ -186,6 +189,10 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
         else -> "Premium gives Flow unlimited room for your day."
     }
 
+    private fun showDelight(type: DelightType, message: String) {
+        delight = DelightEvent(type, message)
+    }
+
     fun upsertTask(existingId: String?, text: String, priority: TaskPriority, dueDate: String): Boolean {
         val cleanText = text.trim()
         if (cleanText.isBlank()) {
@@ -198,6 +205,7 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
                 notice = limitMessage("tasks")
                 return false
             }
+            val wasFirstTask = tasks.isEmpty()
             tasks = tasks + DailyTask(
                 id = UUID.randomUUID().toString(),
                 text = cleanText,
@@ -207,6 +215,9 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
                 updatedAt = now
             )
             notice = "Flow saved that task."
+            if (wasFirstTask) {
+                showDelight(DelightType.FIRST_TASK, "First task placed. Flow is already moving with you.")
+            }
         } else {
             tasks = tasks.map { task ->
                 if (task.id == existingId) {
@@ -231,6 +242,9 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
         }
         saveJson("tasks", tasks)
         notice = if (task.done) "Flow reopened that task." else "Nice work. Flow marked that task complete."
+        if (!task.done) {
+            showDelight(DelightType.TASK_COMPLETE, "Done. Flow felt that momentum.")
+        }
     }
 
     fun deleteTask(id: String?) {
@@ -244,6 +258,9 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
         tasks = tasks.filterNot { it.done }
         saveJson("tasks", tasks)
         notice = if (removed == 1) "Flow cleared 1 completed task." else "Flow cleared $removed completed tasks."
+        if (removed > 0) {
+            showDelight(DelightType.CLEAR_COMPLETED, "Clean slate. Flow made a little more room.")
+        }
     }
 
     fun upsertHabit(existingId: String?, name: String): Boolean {
@@ -258,8 +275,12 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
                 notice = limitMessage("habits")
                 return false
             }
+            val wasFirstHabit = habits.isEmpty()
             habits = habits + Habit(id = UUID.randomUUID().toString(), name = cleanName, createdAt = now, updatedAt = now)
             notice = "Flow saved that habit."
+            if (wasFirstHabit) {
+                showDelight(DelightType.FIRST_HABIT, "Tiny habit, real momentum. Flow is cheering for the first check-in.")
+            }
         } else {
             habits = habits.map { habit ->
                 if (habit.id == existingId) habit.copy(name = cleanName, updatedAt = now) else habit
@@ -273,6 +294,7 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
     fun completeHabit(habit: Habit) {
         val today = todayKey()
         val yesterday = yesterdayKey()
+        var newBestStreak = false
         if (habit.lastDone == today) {
             notice = "Flow already counted ${habit.safeName()} today."
             return
@@ -281,6 +303,7 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
             if (item.id == habit.id) {
                 val previous = item.lastDone.orEmpty()
                 val nextStreak = if (previous == yesterday) item.streak.coerceAtLeast(0) + 1 else 1
+                newBestStreak = nextStreak > item.bestStreak
                 item.copy(
                     streak = nextStreak,
                     bestStreak = max(item.bestStreak, nextStreak),
@@ -293,6 +316,12 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
         }
         saveJson("habits", habits)
         notice = "Momentum logged. Flow updated the streak."
+        val allHabitsDone = habits.isNotEmpty() && habits.all { it.lastDone == today }
+        when {
+            allHabitsDone -> showDelight(DelightType.ALL_HABITS_DONE, "All habits checked in. Flow is celebrating the full set.")
+            newBestStreak -> showDelight(DelightType.NEW_BEST_STREAK, "New best streak. Flow is sparkling for that consistency.")
+            else -> showDelight(DelightType.HABIT_COMPLETE, "Habit checked in. Flow gave the streak a bounce.")
+        }
     }
 
     fun resetHabit(habit: Habit) {
@@ -322,8 +351,12 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
                 notice = limitMessage("notes")
                 return false
             }
+            val wasFirstNote = notes.isEmpty()
             notes = listOf(Note(id = UUID.randomUUID().toString(), title = cleanTitle, body = cleanBody, createdAt = now, updatedAt = now)) + notes
             notice = "Flow saved that note."
+            if (wasFirstNote) {
+                showDelight(DelightType.FIRST_NOTE, "First note captured. Flow tucked it somewhere easy to find.")
+            }
         } else {
             notes = notes.map { note ->
                 if (note.id == existingId) note.copy(title = cleanTitle, body = cleanBody, updatedAt = now) else note
@@ -362,6 +395,7 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
             prefs.edit().putBoolean("premium", true).apply()
             purchaseStatus = "Debug unlock active for testing."
             notice = "Debug unlock enabled for testing only."
+            showDelight(DelightType.PREMIUM_UNLOCK, "Premium test unlock active. Flow has unlimited space.")
         }
     }
 
@@ -471,6 +505,7 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
             premium = true
             prefs.edit().putBoolean("premium", true).apply()
             purchaseStatus = "Premium unlocked. Flow has unlimited room now."
+            showDelight(DelightType.PREMIUM_UNLOCK, "Premium unlocked. Flow has unlimited room now.")
         }
         if (!purchase.isAcknowledged) {
             val params = AcknowledgePurchaseParams.newBuilder()
