@@ -39,6 +39,7 @@ import com.appenheimer.dailyflow.model.formatTimestamp
 import com.appenheimer.dailyflow.model.noteBody
 import com.appenheimer.dailyflow.model.noteTitle
 import com.appenheimer.dailyflow.ui.components.EmptyState
+import com.appenheimer.dailyflow.ui.components.FlowPose
 import com.appenheimer.dailyflow.ui.components.LimitCard
 import com.appenheimer.dailyflow.ui.components.ScreenHeader
 import com.appenheimer.dailyflow.ui.components.ScreenList
@@ -129,10 +130,11 @@ fun NotesScreen(store: DailyFlowStore) {
                     Icons.Filled.Edit,
                     if (query.isBlank()) "No notes yet" else "No notes found",
                     if (query.isBlank()) {
-                        "Use notes for meeting details, shopping lists, ideas, and quick reminders."
+                        "Flow can hold meeting details, shopping lists, ideas, and thoughts you want searchable later."
                     } else {
-                        "Try another word from the title or body."
-                    }
+                        "Flow could not find that phrase. Try another word from the title or body."
+                    },
+                    if (query.isBlank()) FlowPose.NOTE else FlowPose.EMPTY
                 )
             }
         } else {

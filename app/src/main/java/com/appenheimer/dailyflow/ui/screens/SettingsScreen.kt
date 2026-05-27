@@ -1,6 +1,7 @@
 package com.appenheimer.dailyflow.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,6 +27,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.appenheimer.dailyflow.BuildConfig
 import com.appenheimer.dailyflow.data.DailyFlowStore
+import com.appenheimer.dailyflow.ui.components.FlowMascot
+import com.appenheimer.dailyflow.ui.components.FlowPose
 import com.appenheimer.dailyflow.ui.components.ScreenHeader
 import com.appenheimer.dailyflow.ui.components.ScreenList
 import com.appenheimer.dailyflow.ui.components.SectionCard
@@ -50,7 +53,14 @@ fun SettingsScreen(store: DailyFlowStore) {
     ScreenList {
         item { ScreenHeader("Settings", "App details, local data controls, and privacy.") }
         item {
-            SectionCard(title = "App") {
+            SectionCard(title = "Local status") {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    FlowMascot(if (store.premium) FlowPose.CELEBRATE else FlowPose.HAPPY, modifier = Modifier.size(72.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("DailyFlow is running locally on this device.", fontWeight = FontWeight.SemiBold)
+                        Text(if (store.premium) "Premium active" else "Free plan active", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
                 SettingsRow("Name", "DailyFlow")
                 SettingsRow("Version", BuildConfig.VERSION_NAME)
                 SettingsRow("Premium", if (store.premium) "Active" else "Free plan")
@@ -61,7 +71,7 @@ fun SettingsScreen(store: DailyFlowStore) {
                 Row(verticalAlignment = Alignment.Top) {
                     Icon(Icons.Filled.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.width(12.dp))
-                    Text("DailyFlow is an offline-first day planner for practical tasks, habit streaks, and quick notes.")
+                    Text("DailyFlow is an offline-first day planner with Flow, a calm companion for tasks, habit streaks, and quick notes. Plan better. Build momentum.")
                 }
             }
         }

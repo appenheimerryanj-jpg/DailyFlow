@@ -10,14 +10,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -29,19 +24,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.appenheimer.dailyflow.ui.components.FlowMascot
+import com.appenheimer.dailyflow.ui.components.FlowPose
 import com.appenheimer.dailyflow.ui.theme.DailyFlowTheme
 
-private data class OnboardingPage(val title: String, val body: String, val icon: ImageVector)
+private data class OnboardingPage(val title: String, val body: String, val pose: FlowPose)
 
 @Composable
 fun OnboardingScreen(onFinish: () -> Unit) {
     val pages = listOf(
-        OnboardingPage("Plan your day", "Capture tasks, choose priorities, and add simple due date notes.", Icons.Filled.CheckCircle),
-        OnboardingPage("Build better habits", "Check in daily, protect streaks, and see progress at a glance.", Icons.Filled.Favorite),
-        OnboardingPage("Capture quick thoughts", "Save notes with titles, search the body, and keep everything local.", Icons.Filled.Edit)
+        OnboardingPage("Plan your day", "Flow helps you capture tasks, choose priorities, and keep due date notes close.", FlowPose.CHECKLIST),
+        OnboardingPage("Build better habits", "Check in daily, protect streaks, and let small wins build momentum.", FlowPose.CELEBRATE),
+        OnboardingPage("Capture quick thoughts", "Save searchable notes with titles and body text. Everything stays local for now.", FlowPose.NOTE)
     )
     var page by remember { mutableIntStateOf(0) }
     val current = pages[page]
@@ -60,8 +56,10 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Icon(current.icon, contentDescription = null, modifier = Modifier.size(56.dp), tint = MaterialTheme.colorScheme.primary)
+                            FlowMascot(current.pose, modifier = Modifier.size(128.dp))
+                            Text("DailyFlow", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                             Text(current.title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                            Text("Plan better. Build momentum.", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             Text(current.body, color = MaterialTheme.colorScheme.onPrimaryContainer)
                         }
                     }

@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilterChip
@@ -45,6 +46,7 @@ import com.appenheimer.dailyflow.model.safePriority
 import com.appenheimer.dailyflow.model.safeText
 import com.appenheimer.dailyflow.model.sortedTasks
 import com.appenheimer.dailyflow.ui.components.EmptyState
+import com.appenheimer.dailyflow.ui.components.FlowPose
 import com.appenheimer.dailyflow.ui.components.LimitCard
 import com.appenheimer.dailyflow.ui.components.PriorityBadge
 import com.appenheimer.dailyflow.ui.components.ScreenHeader
@@ -145,7 +147,12 @@ fun TasksScreen(store: DailyFlowStore) {
                         TaskFilter.ACTIVE -> "No active tasks"
                         TaskFilter.COMPLETED -> "No completed tasks"
                     },
-                    "Add a clear next action, then give it a priority and optional due date text."
+                    when (filter) {
+                        TaskFilter.ALL -> "Flow can help plan the first clear next action."
+                        TaskFilter.ACTIVE -> "Everything active is handled. Add the next useful task when you are ready."
+                        TaskFilter.COMPLETED -> "Completed tasks will appear here after you check them off."
+                    },
+                    FlowPose.CHECKLIST
                 )
             }
         } else {
@@ -166,7 +173,13 @@ fun TasksScreen(store: DailyFlowStore) {
 
 @Composable
 private fun TaskCard(task: DailyTask, onToggle: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = if (task.done) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface
+        )
+    ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Checkbox(checked = task.done, onCheckedChange = { onToggle() })
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {

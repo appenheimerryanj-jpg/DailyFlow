@@ -19,10 +19,10 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -40,7 +40,10 @@ import com.appenheimer.dailyflow.model.FREE_HABIT_LIMIT
 import com.appenheimer.dailyflow.model.Habit
 import com.appenheimer.dailyflow.model.doneToday
 import com.appenheimer.dailyflow.model.safeName
+import com.appenheimer.dailyflow.ui.components.AnimatedProgressBar
 import com.appenheimer.dailyflow.ui.components.EmptyState
+import com.appenheimer.dailyflow.ui.components.FlowMascot
+import com.appenheimer.dailyflow.ui.components.FlowPose
 import com.appenheimer.dailyflow.ui.components.LimitCard
 import com.appenheimer.dailyflow.ui.components.ScreenHeader
 import com.appenheimer.dailyflow.ui.components.ScreenList
@@ -95,13 +98,18 @@ fun HabitsScreen(store: DailyFlowStore) {
             SectionCard(title = "Today") {
                 val total = store.habits.size.coerceAtLeast(1)
                 val progress = store.doneHabitsTodayCount.toFloat() / total.toFloat()
-                Text("${store.doneHabitsTodayCount} of ${store.habits.size} habits complete")
-                LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
-                Text("Check in once per habit per day. If yesterday was missed, the next check-in starts a new streak.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    FlowMascot(FlowPose.CELEBRATE, modifier = Modifier.size(64.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("${store.doneHabitsTodayCount} of ${store.habits.size} habits complete")
+                        AnimatedProgressBar(progress = progress, modifier = Modifier.fillMaxWidth())
+                    }
+                }
+                Text("Check in once per habit per day. If yesterday was missed, Flow starts a fresh streak next time.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         if (store.habits.isEmpty()) {
-            item { EmptyState(Icons.Filled.Favorite, "No habits yet", "Start with one easy habit that you can complete today.") }
+            item { EmptyState(Icons.Filled.Favorite, "No habits yet", "Flow suggests starting with one tiny habit you can complete today.", FlowPose.CELEBRATE) }
         } else {
             items(store.habits, key = { it.id ?: it.hashCode().toString() }) { habit ->
                 HabitCard(
@@ -122,7 +130,13 @@ fun HabitsScreen(store: DailyFlowStore) {
 @Composable
 private fun HabitCard(habit: Habit, onComplete: () -> Unit, onReset: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
     val doneToday = habit.doneToday()
-    ElevatedCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = if (doneToday) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+        )
+    ) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {

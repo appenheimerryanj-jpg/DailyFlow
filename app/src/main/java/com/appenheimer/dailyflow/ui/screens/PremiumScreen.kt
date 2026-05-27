@@ -26,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -37,6 +38,8 @@ import com.appenheimer.dailyflow.model.FREE_HABIT_LIMIT
 import com.appenheimer.dailyflow.model.FREE_NOTE_LIMIT
 import com.appenheimer.dailyflow.model.PREMIUM_PRODUCT_ID
 import com.appenheimer.dailyflow.ui.components.FeatureLine
+import com.appenheimer.dailyflow.ui.components.FlowMascot
+import com.appenheimer.dailyflow.ui.components.FlowPose
 import com.appenheimer.dailyflow.ui.components.ScreenHeader
 import com.appenheimer.dailyflow.ui.components.ScreenList
 import com.appenheimer.dailyflow.ui.components.SectionCard
@@ -58,19 +61,26 @@ fun PremiumScreen(store: DailyFlowStore) {
                     containerColor = if (store.premium) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer
                 )
             ) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Icon(
-                        if (store.premium) Icons.Filled.WorkspacePremium else Icons.Filled.Lock,
-                        contentDescription = null,
-                        modifier = Modifier.size(44.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Text(if (store.premium) "Premium is active" else "Unlock unlimited DailyFlow", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text(
-                        if (store.premium) "Unlimited local tasks, habits, and notes are active on this device." else "Free is enough to start. Premium removes limits and supports future development.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    AssistChip(onClick = {}, enabled = false, label = { Text(if (store.billingLoading) "Billing connecting" else if (store.billingReady) "Billing ready" else "Billing unavailable") })
+                Row(
+                    Modifier.padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Icon(
+                            if (store.premium) Icons.Filled.WorkspacePremium else Icons.Filled.Lock,
+                            contentDescription = null,
+                            modifier = Modifier.size(38.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(if (store.premium) "Premium is active" else "Unlock unlimited DailyFlow", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                        Text(
+                            if (store.premium) "Flow has unlimited room for local tasks, habits, and notes on this device." else "Free is enough to start. Premium removes limits and supports future development.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        AssistChip(onClick = {}, enabled = false, label = { Text(if (store.billingLoading) "Billing connecting" else if (store.billingReady) "Billing ready" else "Billing unavailable") })
+                    }
+                    FlowMascot(if (store.premium) FlowPose.CELEBRATE else FlowPose.PREMIUM, modifier = Modifier.size(104.dp))
                 }
             }
         }
@@ -106,7 +116,7 @@ fun PremiumScreen(store: DailyFlowStore) {
                 }
                 if (BuildConfig.DEBUG) {
                     OutlinedButton(onClick = { store.devUnlock() }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Debug/testing only: unlock premium")
+                        Text("Debug unlock - testing only")
                     }
                 }
                 Text("Product ID: $PREMIUM_PRODUCT_ID", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)

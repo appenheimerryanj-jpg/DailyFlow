@@ -85,7 +85,7 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
         return try {
             gson.fromJson<T>(raw, object : TypeToken<T>() {}.type)
         } catch (error: Exception) {
-            dataWarning = "Some saved $key data could not be read, so DailyFlow loaded a clean copy."
+            dataWarning = "Flow found unreadable $key data and loaded a clean copy so the app could keep going."
             null
         }
     }
@@ -180,16 +180,16 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
     fun canAddNote(): Boolean = premium || notes.size < FREE_NOTE_LIMIT
 
     fun limitMessage(kind: String): String = when (kind) {
-        "tasks" -> "Free plan allows $FREE_ACTIVE_TASK_LIMIT active tasks. Complete or delete one, or unlock Premium."
-        "habits" -> "Free plan allows $FREE_HABIT_LIMIT habits. Delete one, or unlock Premium."
-        "notes" -> "Free plan allows $FREE_NOTE_LIMIT notes. Delete one, or unlock Premium."
-        else -> "Premium removes DailyFlow limits."
+        "tasks" -> "Flow says the free plan has room for $FREE_ACTIVE_TASK_LIMIT active tasks. Complete or delete one, or unlock Premium."
+        "habits" -> "Flow says the free plan has room for $FREE_HABIT_LIMIT habits. Delete one, or unlock Premium."
+        "notes" -> "Flow says the free plan has room for $FREE_NOTE_LIMIT notes. Delete one, or unlock Premium."
+        else -> "Premium gives Flow unlimited room for your day."
     }
 
     fun upsertTask(existingId: String?, text: String, priority: TaskPriority, dueDate: String): Boolean {
         val cleanText = text.trim()
         if (cleanText.isBlank()) {
-            notice = "Task needs a title."
+            notice = "Flow needs a task title first."
             return false
         }
         val now = nowMillis()
@@ -206,7 +206,7 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
                 createdAt = now,
                 updatedAt = now
             )
-            notice = "Task saved."
+            notice = "Flow saved that task."
         } else {
             tasks = tasks.map { task ->
                 if (task.id == existingId) {
@@ -215,7 +215,7 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
                     task
                 }
             }
-            notice = "Task updated."
+            notice = "Flow updated that task."
         }
         saveJson("tasks", tasks)
         return true
@@ -230,26 +230,26 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
             if (item.id == task.id) item.copy(done = !item.done, updatedAt = nowMillis()) else item
         }
         saveJson("tasks", tasks)
-        notice = if (task.done) "Task reopened." else "Task completed."
+        notice = if (task.done) "Flow reopened that task." else "Nice work. Flow marked that task complete."
     }
 
     fun deleteTask(id: String?) {
         tasks = tasks.filterNot { it.id == id }
         saveJson("tasks", tasks)
-        notice = "Task deleted."
+        notice = "Flow deleted that task."
     }
 
     fun clearCompletedTasks() {
         val removed = tasks.count { it.done }
         tasks = tasks.filterNot { it.done }
         saveJson("tasks", tasks)
-        notice = if (removed == 1) "Cleared 1 completed task." else "Cleared $removed completed tasks."
+        notice = if (removed == 1) "Flow cleared 1 completed task." else "Flow cleared $removed completed tasks."
     }
 
     fun upsertHabit(existingId: String?, name: String): Boolean {
         val cleanName = name.trim()
         if (cleanName.isBlank()) {
-            notice = "Habit needs a name."
+            notice = "Flow needs a habit name first."
             return false
         }
         val now = nowMillis()
@@ -259,12 +259,12 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
                 return false
             }
             habits = habits + Habit(id = UUID.randomUUID().toString(), name = cleanName, createdAt = now, updatedAt = now)
-            notice = "Habit saved."
+            notice = "Flow saved that habit."
         } else {
             habits = habits.map { habit ->
                 if (habit.id == existingId) habit.copy(name = cleanName, updatedAt = now) else habit
             }
-            notice = "Habit updated."
+            notice = "Flow updated that habit."
         }
         saveJson("habits", habits)
         return true
@@ -274,7 +274,7 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
         val today = todayKey()
         val yesterday = yesterdayKey()
         if (habit.lastDone == today) {
-            notice = "${habit.safeName()} is already done today."
+            notice = "Flow already counted ${habit.safeName()} today."
             return
         }
         habits = habits.map { item ->
@@ -292,7 +292,7 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
             }
         }
         saveJson("habits", habits)
-        notice = "Habit checked in."
+        notice = "Momentum logged. Flow updated the streak."
     }
 
     fun resetHabit(habit: Habit) {
@@ -300,20 +300,20 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
             if (item.id == habit.id) item.copy(streak = 0, lastDone = "", updatedAt = nowMillis()) else item
         }
         saveJson("habits", habits)
-        notice = "Habit streak reset. Best streak was kept."
+        notice = "Flow reset the current streak and kept the best streak."
     }
 
     fun deleteHabit(id: String?) {
         habits = habits.filterNot { it.id == id }
         saveJson("habits", habits)
-        notice = "Habit deleted."
+        notice = "Flow deleted that habit."
     }
 
     fun upsertNote(existingId: String?, title: String, body: String): Boolean {
         val cleanTitle = title.trim()
         val cleanBody = body.trim()
         if (cleanTitle.isBlank() && cleanBody.isBlank()) {
-            notice = "Note needs a title or body."
+            notice = "Flow needs a note title or body first."
             return false
         }
         val now = nowMillis()
@@ -323,12 +323,12 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
                 return false
             }
             notes = listOf(Note(id = UUID.randomUUID().toString(), title = cleanTitle, body = cleanBody, createdAt = now, updatedAt = now)) + notes
-            notice = "Note saved."
+            notice = "Flow saved that note."
         } else {
             notes = notes.map { note ->
                 if (note.id == existingId) note.copy(title = cleanTitle, body = cleanBody, updatedAt = now) else note
             }.sortedByDescending { it.updatedAt ?: 0L }
-            notice = "Note updated."
+            notice = "Flow updated that note."
         }
         saveJson("notes", notes)
         return true
@@ -337,7 +337,7 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
     fun deleteNote(id: String?) {
         notes = notes.filterNot { it.id == id }
         saveJson("notes", notes)
-        notice = "Note deleted."
+        notice = "Flow deleted that note."
     }
 
     fun resetData() {
@@ -345,23 +345,23 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
         habits = emptyList()
         notes = emptyList()
         saveAll()
-        notice = "DailyFlow data reset. Premium status was kept."
+        notice = "Flow reset your local workspace. Premium status was kept."
     }
 
     fun exportPlaceholder() {
-        notice = "Export data is planned. Your data stays local on this device for now."
+        notice = "Export is planned. Flow is keeping your data local on this device for now."
     }
 
     fun importPlaceholder() {
-        notice = "Import data is planned. Future versions can restore local backups here."
+        notice = "Import is planned. Flow will restore local backups here in a future version."
     }
 
     fun devUnlock() {
         if (BuildConfig.DEBUG) {
             premium = true
             prefs.edit().putBoolean("premium", true).apply()
-            purchaseStatus = "Debug premium enabled."
-            notice = "Debug/testing premium unlock enabled."
+            purchaseStatus = "Debug unlock active for testing."
+            notice = "Debug unlock enabled for testing only."
         }
     }
 
@@ -385,7 +385,7 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
                 activity.runOnUiThread {
                     billingReady = false
                     billingLoading = false
-                    purchaseStatus = "Billing disconnected. Try restore purchases in a moment."
+            purchaseStatus = "Billing disconnected. Try restore purchases in a moment."
                 }
             }
         })
@@ -412,7 +412,7 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
     fun buyPremium() {
         val details = premiumDetails
         if (premium) {
-            notice = "Premium is already active."
+            notice = "Flow already sees Premium active."
             return
         }
         if (!billingReady || details == null) {
@@ -432,7 +432,7 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
     fun restorePurchases(showEmptyMessage: Boolean = true) {
         if (!billingReady) {
             if (showEmptyMessage) {
-                notice = "Billing is still connecting. Try again in a moment."
+                notice = "Flow is still connecting billing. Try again in a moment."
             }
             return
         }
@@ -443,9 +443,9 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
             activity.runOnUiThread {
                 if (showEmptyMessage) {
                     notice = if (restored) {
-                        "Premium purchase restored."
+                        "Flow restored Premium."
                     } else {
-                        "No premium purchase found for this Google account."
+                        "Flow did not find Premium for this Google account."
                     }
                 }
             }
@@ -470,7 +470,7 @@ class DailyFlowStore(private val activity: Activity) : PurchasesUpdatedListener 
         activity.runOnUiThread {
             premium = true
             prefs.edit().putBoolean("premium", true).apply()
-            purchaseStatus = "Premium unlocked. Thank you!"
+            purchaseStatus = "Premium unlocked. Flow has unlimited room now."
         }
         if (!purchase.isAcknowledged) {
             val params = AcknowledgePurchaseParams.newBuilder()
